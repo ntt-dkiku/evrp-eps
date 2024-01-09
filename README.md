@@ -2,8 +2,7 @@
 This repo is the official implementation of Electric Vehicle Routing for Emergency Power Supply with Deep Reinforcement Learning (AAMAS 2024, extended abstract).
 Please check also [the project page](https://ntt-dkiku.github.io/rl-evrpeps/).
 
-https://github.com/ntt-dkiku/evrp-eps/assets/154794155/b103f158-5419-4797-ac43-dfb6246d02de
-
+<div><video autoplay loop controls src="https://github.com/ntt-dkiku/evrp-eps/assets/154794155/818b81f7-8e19-40ac-9934-70bc30f13e53"></video></div>
 
 ## Python Environment
 We recommend using Docker to construct the python environment. You can use the [Dockerfile](./Dockerfile) in this repository. 
