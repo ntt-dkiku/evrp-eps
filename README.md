@@ -1,6 +1,9 @@
 # Electric Vehicle Routing for Emergency Power Supply: Toward Telecom Base Station Relief
+This repo is the official implementation of Electric Vehicle Routing for Emergency Power Supply with Deep Reinforcement Learning (AAMAS 2024, extended abstract).
+Please check also [the project page](https://ntt-dkiku.github.io/rl-evrpeps/).
 
-![evrp-anim](https://github.com/ntt-dkiku/rl-evrpeps/blob/main/static/videos/evrp-anim.mp4)
+https://github.com/ntt-dkiku/evrp-eps/assets/154794155/b103f158-5419-4797-ac43-dfb6246d02de
+
 
 ## Python Environment
 We recommend using Docker to construct the python environment. You can use the [Dockerfile](./Dockerfile) in this repository. 
