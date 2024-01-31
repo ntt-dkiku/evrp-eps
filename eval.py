@@ -130,7 +130,7 @@ def eval(dataset_path: str,
         # visualization
         #---------------
         if visualize_routes:
-            vis_routes(batch, vehicle_ids, node_ids, f"{output_dir}/batch{batch_id}", device)
+            vis_routes(vehicle_ids, node_ids, batch, f"{output_dir}/batch{batch_id}", device)
             save_route_info(batch, vehicle_ids, node_ids, mask, f"{output_dir}/batch{batch_id}")
 
     #------------------

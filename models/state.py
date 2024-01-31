@@ -9,6 +9,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib import patches
 import copy
 import subprocess
+from typing import Dict, List
 
 DPI = 150
 SMALL_VALUE = 1e-9
@@ -19,7 +20,13 @@ OUTPUT_INTERVAL = 0.01
 FPS = 60
 UNEQUAL_INTERVAL = False
 
-def visualize_routes2(inputs, route_list, fname, device):
+#--------------------------
+# when input is route_list
+#--------------------------
+def visualize_routes2(route_list: List[List[int]],
+                      inputs: Dict[str, torch.tensor], 
+                      fname: str, 
+                      device: str) -> None:
     state = CIRPState(inputs, device, fname)
     count = [2 for _ in range(len(route_list))]
     while not state.all_finished():
@@ -34,7 +41,14 @@ def visualize_routes2(inputs, route_list, fname, device):
     if SAVE_HISTORY:
         state.output_batt_history()
 
-def visualize_routes(inputs, vehicle_ids, node_ids, fname, device):
+#-------------------------------------------------
+# when input is the selected vehicle & node order
+#-------------------------------------------------
+def visualize_routes(vehicle_ids: torch.tensor, 
+                     node_ids: torch.tensor, 
+                     inputs: Dict[str, torch.tensor], 
+                     fname: str, 
+                     device: str):
     if vehicle_ids.dim() < 2: # if batch_size = 1
         vehicle_ids = vehicle_ids.unsqueeze(0).expand(1, node_ids.size(-1))
         node_ids = node_ids.unsqueeze(0).expand(1, node_ids.size(-1))
@@ -51,7 +65,11 @@ def visualize_routes(inputs, vehicle_ids, node_ids, fname, device):
     if SAVE_HISTORY:
         state.output_batt_history()
 
-def save_route_info(inputs, vehicle_ids, node_ids, mask, output_dir):
+def save_route_info(inputs: Dict[str, torch.tensor], 
+                    vehicle_ids: torch.tensor, 
+                    node_ids: torch.tensor, 
+                    mask: torch.tensor, 
+                    output_dir: str) -> None:
     if vehicle_ids.dim() < 2: # if batch_size = 1
         vehicle_ids = vehicle_ids.unsqueeze(0).expand(1, node_ids.size(-1))
         node_ids = node_ids.unsqueeze(0).expand(1, node_ids.size(-1))
@@ -297,16 +315,15 @@ class CIRPState(object):
         
         # charge/supply time
         destination_loc_mask = self.get_loc_mask(next_node_id) # [batch_size x num_locs]
-        at_loc_sqz = at_loc.squeeze(-1) # [batch_size]
         #-------------------------------------
         # supplying time (visiting locations)
         #-------------------------------------
         unavail_depots = self.get_unavail_depots2(next_node_id).unsqueeze(-1).expand_as(self.depot_coords)
         depot_coords = self.depot_coords + 1e+6 * unavail_depots
-        loc2depot_min = torch.linalg.norm(self.get_coordinates(next_node_id).unsqueeze(1) - depot_coords, dim=-1).min(-1)[0] # [batch_size]
+        loc2depot_min = torch.linalg.norm(self.get_coordinates(next_node_id).unsqueeze(1) - depot_coords, dim=-1).min(-1)[0] # [batch_size] 
         discharge_lim = torch.maximum(loc2depot_min.unsqueeze(-1) * self.vehicle_consump_rate, self.vehicle_discharge_lim) # [batch_size x num_vehicles]
         veh_discharge_lim = (self.vehicle_curr_battery - (travel_distance.unsqueeze(-1) * self.vehicle_consump_rate) - discharge_lim).clamp(0.0)
-        demand_on_arrival = torch.minimum(((self.loc_cap - (self.loc_curr_battery - self.loc_consump_rate * travel_time.unsqueeze(-1))) * destination_loc_mask).sum(-1, keepdim=True), 
+        demand_on_arrival = torch.minimum(((self.loc_cap - (self.loc_curr_battery - self.loc_consump_rate * (travel_time.unsqueeze(-1) + self.pre_time_loc))) * destination_loc_mask).sum(-1, keepdim=True), 
                                           veh_discharge_lim) # [batch_size x num_vehicles]
         # split supplying TODO: need clippling ?
         charge_time_tmp = demand_on_arrival / (self.vehicle_discharge_rate - (self.loc_consump_rate * destination_loc_mask).sum(-1, keepdim=True)) # [batch_sizee x num_vehicles]
@@ -478,7 +495,7 @@ class CIRPState(object):
             self.vehicle_unavail_time *= ~next_vehicles_on_update_batch # 0 or 1 [batch_size x num_vehicles]
             
             #-------------------------
-            # moving -> pre operation
+            # moving -> pre operation: 
             #-------------------------
             next_vehicle_on_move = next_vehicles_on_update_batch & (self.vehicle_phase == self.phase_id["move"]) # [batch_size x num_vehicles]
             if next_vehicle_on_move.sum() > 0:
@@ -824,7 +841,7 @@ class CIRPState(object):
                         curr_veh_batt: torch.FloatTensor,
                         curr_loc_batt: torch.FloatTensor,
                         curr_down_locs: float,
-                        veh_unavail_time: torch.FloatTensor):
+                        veh_unavail_time: torch.FloatTensor) -> None:
         #-----------------
         # battery history
         #-----------------
@@ -838,95 +855,100 @@ class CIRPState(object):
         #---------------
         # visualziation
         #---------------
-        fig = plt.figure(figsize=(20, 12))
-        gs = fig.add_gridspec(ncols=2, nrows=3, width_ratios=[1, 1.5])
-        ax = fig.add_subplot(gs[:, 1])
-        # current state
-        loc_battery = torch2numpy(curr_loc_batt)         # [num_locs]
-        vehicle_battery = torch2numpy(curr_veh_batt) # [num_vehicles]
-        loc_cap = torch2numpy(self.loc_cap[batch])                      # [num_locs]
-        loc_coords = torch2numpy(self.loc_coords[batch])                # [num_locs x coord_dim]
-        depot_coords = torch2numpy(self.depot_coords[batch])            # [num_depots x coord_dim]
-        coords = np.concatenate((loc_coords, depot_coords), 0)          # [num_nodes x coord_dim]
-        vehicle_cap = torch2numpy(self.vehicle_cap[batch])              # [num_vehicles]
-        x_loc = loc_coords[:, 0]; y_loc = loc_coords[:, 1]
-        x_depot = depot_coords[:, 0]; y_depot = depot_coords[:, 1]
-        # visualize nodes
-        for id in range(self.num_locs):
-            ratio = loc_battery[id] / loc_cap[id]
-            add_base(x_loc[id], y_loc[id], ratio, ax)
-        ax.scatter(x_depot, y_depot, marker="*", c="black", s=200, zorder=3)
-        # visualize vehicles
-        cmap = get_cmap(self.num_vehicles)
-        for vehicle_id in range(self.num_vehicles):
-            ratio = vehicle_battery[vehicle_id] / vehicle_cap[vehicle_id]
-            vehicle_phase = self.vehicle_phase[batch][vehicle_id]
-            vehicle_position_id = self.vehicle_position_id[batch][vehicle_id]
-            if vehicle_phase != self.phase_id["move"]:
-                vehicle_x = coords[vehicle_position_id, 0]
-                vehicle_y = coords[vehicle_position_id, 1]
-                add_vehicle(vehicle_x, vehicle_y, ratio, vehicle_battery[vehicle_id], cmap(vehicle_id), ax)
-            else:
-                vehicle_position_id_prev = self.vehicle_position_id_prev[batch][vehicle_id]
-                speed = self.speed[batch]
-                start = coords[vehicle_position_id_prev, :]
-                end   = coords[vehicle_position_id, :]
-                distance = np.linalg.norm(start - end)
-                curr_position = interpolate_line(start, end, (1.0 - speed * veh_unavail_time[vehicle_id] / distance).item())
-                ax.plot([start[0], curr_position[0]], [start[1], curr_position[1]], zorder=0, linestyle="-", color=cmap(vehicle_id))         # passed path
-                ax.plot([curr_position[0], end[0]], [curr_position[1], end[1]], zorder=0, alpha=0.5, linestyle="--", color=cmap(vehicle_id)) # remaining path
-                add_vehicle(curr_position[0], curr_position[1], ratio, vehicle_battery[vehicle_id], cmap(vehicle_id), ax)
-        ax.set_title(f"current time = {curr_time:.3f} h", y=-0.05, fontsize=18)
-        ax.set_xlim(-0.05, 1.05); ax.set_ylim(-0.05, 1.05)
-        ax.get_xaxis().set_visible(False); ax.get_yaxis().set_visible(False)
-        ax.set_aspect(1)
+        if SAVE_PICTURE:
+            fig = plt.figure(figsize=(20, 12))
+            gs = fig.add_gridspec(ncols=2, nrows=3, width_ratios=[1, 1.5])
+            ax = fig.add_subplot(gs[:, 1])
+            # current state
+            loc_battery = torch2numpy(curr_loc_batt)         # [num_locs]
+            vehicle_battery = torch2numpy(curr_veh_batt) # [num_vehicles]
+            loc_cap = torch2numpy(self.loc_cap[batch])                      # [num_locs]
+            loc_coords = torch2numpy(self.loc_coords[batch])                # [num_locs x coord_dim]
+            depot_coords = torch2numpy(self.depot_coords[batch])            # [num_depots x coord_dim]
+            coords = np.concatenate((loc_coords, depot_coords), 0)          # [num_nodes x coord_dim]
+            vehicle_cap = torch2numpy(self.vehicle_cap[batch])              # [num_vehicles]
+            x_loc = loc_coords[:, 0]; y_loc = loc_coords[:, 1]
+            x_depot = depot_coords[:, 0]; y_depot = depot_coords[:, 1]
+            # visualize nodes
+            for id in range(self.num_locs):
+                ratio = loc_battery[id] / loc_cap[id]
+                add_base(x_loc[id], y_loc[id], ratio, ax)
+            ax.scatter(x_depot, y_depot, marker="*", c="black", s=200, zorder=3)
+            # visualize vehicles
+            cmap = get_cmap(self.num_vehicles)
+            for vehicle_id in range(self.num_vehicles):
+                ratio = vehicle_battery[vehicle_id] / vehicle_cap[vehicle_id]
+                vehicle_phase = self.vehicle_phase[batch][vehicle_id]
+                vehicle_position_id = self.vehicle_position_id[batch][vehicle_id]
+                if vehicle_phase != self.phase_id["move"]:
+                    vehicle_x = coords[vehicle_position_id, 0]
+                    vehicle_y = coords[vehicle_position_id, 1]
+                    add_vehicle(vehicle_x, vehicle_y, ratio, vehicle_battery[vehicle_id], cmap(vehicle_id), ax)
+                else:
+                    vehicle_position_id_prev = self.vehicle_position_id_prev[batch][vehicle_id]
+                    speed = self.speed[batch]
+                    start = coords[vehicle_position_id_prev, :]
+                    end   = coords[vehicle_position_id, :]
+                    distance = np.linalg.norm(start - end)
+                    curr_position = interpolate_line(start, end, (1.0 - speed * veh_unavail_time[vehicle_id] / distance).item())
+                    ax.plot([start[0], curr_position[0]], [start[1], curr_position[1]], zorder=0, linestyle="-", color=cmap(vehicle_id))         # passed path
+                    ax.plot([curr_position[0], end[0]], [curr_position[1], end[1]], zorder=0, alpha=0.5, linestyle="--", color=cmap(vehicle_id)) # remaining path
+                    add_vehicle(curr_position[0], curr_position[1], ratio, vehicle_battery[vehicle_id], cmap(vehicle_id), ax)
+            ax.set_title(f"current time = {curr_time:.3f} h", y=-0.05, fontsize=18)
+            ax.set_xlim(-0.05, 1.05); ax.set_ylim(-0.05, 1.05)
+            ax.get_xaxis().set_visible(False); ax.get_yaxis().set_visible(False)
+            ax.set_aspect(1)
 
-        #----------------------------
-        # add history plot until now
-        #----------------------------
-        time_horizon = self.time_horizon.cpu().item()
-        max_veh_batt = torch.ceil(self.vehicle_cap[batch].max() / 10).cpu().item() * 10
-        max_loc_batt = torch.ceil(self.loc_cap[batch].max() / 10).cpu().item() * 10
-        max_num_locs = math.ceil(self.num_locs / 10) * 10
-        # EV battery history
-        ax_ev = fig.add_subplot(gs[0, 0])
-        for vehicle_id in range(self.num_vehicles):
-            ax_ev.plot(self.time_history[batch], list(self.vehicle_batt_history[batch][vehicle_id]), alpha=0.7, color=cmap(vehicle_id))
-        ax_ev.set_xlim(0, time_horizon)
-        ax_ev.set_ylim(0, max_veh_batt)
-        ax_ev.get_xaxis().set_visible(False)
-        ax_ev.axvline(x=self.time_history[batch][-1], ymin=-1.2, ymax=1, c="black", lw=1.5, zorder=0, clip_on=False)
-        ax_ev.set_ylabel("EV battery (kWh)", fontsize=18)
-        # Base station battery history
-        ax_base = fig.add_subplot(gs[1, 0])
-        for loc_id in range(self.num_locs):
-            ax_base.plot(self.time_history[batch], list(self.loc_batt_history[batch][loc_id]), alpha=0.7)
-        ax_base.set_xlim(0, time_horizon)
-        ax_base.set_ylim(0, max_loc_batt)
-        ax_base.get_xaxis().set_visible(False)
-        ax_base.axvline(x=self.time_history[batch][-1], ymin=-1.2, ymax=1, c="black", lw=1.5, zorder=0, clip_on=False)
-        ax_base.set_ylabel("Base station battery (kWh)", fontsize=18)
-        # Num. of downed base stations
-        ax_down = fig.add_subplot(gs[2, 0])
-        ax_down.plot(self.time_history[batch], self.down_history[batch])
-        ax_down.set_xlim(0, time_horizon)
-        ax_down.set_ylim(0, max_num_locs)
-        ax_down.axvline(x=self.time_history[batch][-1], ymin=0, ymax=1, c="black", lw=1.5, zorder=0, clip_on=False)
-        ax_down.set_xlabel("Time (h)", fontsize=18)
-        ax_down.set_ylabel("# downed base stations", fontsize=18)
+            #----------------------------
+            # add history plot until now
+            #----------------------------
+            time_horizon = self.time_horizon.cpu().item()
+            max_veh_batt = torch.ceil(self.vehicle_cap[batch].max() / 10).cpu().item() * 10
+            max_loc_batt = torch.ceil(self.loc_cap[batch].max() / 10).cpu().item() * 10
+            max_num_locs = math.ceil(self.num_locs / 10) * 10
+            # EV battery history
+            ax_ev = fig.add_subplot(gs[0, 0])
+            for vehicle_id in range(self.num_vehicles):
+                ax_ev.plot(self.time_history[batch], list(self.vehicle_batt_history[batch][vehicle_id]), alpha=0.7, color=cmap(vehicle_id))
+            ax_ev.set_xlim(0, time_horizon)
+            ax_ev.set_ylim(0, max_veh_batt)
+            ax_ev.get_xaxis().set_visible(False)
+            ax_ev.axvline(x=self.time_history[batch][-1], ymin=-1.2, ymax=1, c="black", lw=1.5, zorder=0, clip_on=False)
+            ax_ev.set_ylabel("EV battery (kWh)", fontsize=18)
+            # Base station battery history
+            ax_base = fig.add_subplot(gs[1, 0])
+            for loc_id in range(self.num_locs):
+                ax_base.plot(self.time_history[batch], list(self.loc_batt_history[batch][loc_id]), alpha=0.7)
+            ax_base.set_xlim(0, time_horizon)
+            ax_base.set_ylim(0, max_loc_batt)
+            ax_base.get_xaxis().set_visible(False)
+            ax_base.axvline(x=self.time_history[batch][-1], ymin=-1.2, ymax=1, c="black", lw=1.5, zorder=0, clip_on=False)
+            ax_base.set_ylabel("Base station battery (kWh)", fontsize=18)
+            # Num. of downed base stations
+            ax_down = fig.add_subplot(gs[2, 0])
+            ax_down.plot(self.time_history[batch], self.down_history[batch])
+            ax_down.set_xlim(0, time_horizon)
+            ax_down.set_ylim(0, max_num_locs)
+            ax_down.axvline(x=self.time_history[batch][-1], ymin=0, ymax=1, c="black", lw=1.5, zorder=0, clip_on=False)
+            ax_down.set_xlabel("Time (h)", fontsize=18)
+            ax_down.set_ylabel("# downed base stations", fontsize=18)
 
-        #---------------
-        # save an image
-        #---------------
-        fig.subplots_adjust(left=0.03, right=1, bottom=0.05, top=0.98, wspace=0.05)
-        fname = f"{self.fname}-{batch}/png/tour_state{self.episode_step}.png"
-        os.makedirs(f"{self.fname}-{batch}/png", exist_ok=True)
-        plt.savefig(fname, dpi=DPI)
-        plt.close()
+            #---------------
+            # save an image
+            #---------------
+            fig.subplots_adjust(left=0.03, right=1, bottom=0.05, top=0.98, wspace=0.05)
+            fname = f"{self.fname}-{batch}/png/tour_state{self.episode_step}.png"
+            os.makedirs(f"{self.fname}-{batch}/png", exist_ok=True)
+            plt.savefig(fname, dpi=DPI)
+            plt.close()
+
         self.episode_step += 1
 
     def output_batt_history(self):
         batch = 0
+        os.makedirs(f"{self.fname}-sample{batch}", exist_ok=True)
+
+        # save the image of batt history
         fig = plt.figure(figsize=(10, 30))
         ax1 = fig.add_subplot(311)
         ax2 = fig.add_subplot(312)
@@ -942,7 +964,8 @@ class CIRPState(object):
         ax2.set_ylabel("Base stations' battery (KW)")
         ax3.set_xlabel("Time (h)")
         ax3.set_ylabel("Number of downed base stations")
-        plt.savefig(f"{self.fname}-{batch}/batt_history.png", dpi=DPI)
+        plt.savefig(f"{self.fname}-sample{batch}/batt_history.png", dpi=DPI)
+        
         # save raw data
         hisotry_data = {
             "time": self.time_history[batch],
@@ -950,7 +973,6 @@ class CIRPState(object):
             "loc_batt": self.loc_batt_history[batch],
             "down_loc": self.down_history[batch]
         }
-        os.makedirs(f"{self.fname}-sample{batch}", exist_ok=True)
         with open(f"{self.fname}-sample{batch}/history_data.pkl", "wb") as f:
             pickle.dump(hisotry_data, f)
     
