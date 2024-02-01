@@ -14,7 +14,7 @@ from typing import Dict, List
 DPI = 150
 SMALL_VALUE = 1e-9
 BIT_SMALL_VALUE = 1e-3
-SAVE_PICTURE = True
+SAVE_PICTURE = False
 SAVE_HISTORY = True
 OUTPUT_INTERVAL = 0.01
 FPS = 60
@@ -336,7 +336,7 @@ class CIRPState(object):
         # charging time (visiting depots)
         #---------------------------------
         curr_depot_mask = self.get_depot_mask(next_node_id) # [batch_size x num_depots]
-        charge_time += (((self.vehicle_cap - self.vehicle_curr_battery) / ((self.depot_discharge_rate * curr_depot_mask).sum(-1, keepdim=True) + SMALL_VALUE)) * curr_vehicle_at_depot).sum(-1) # charge time for split supplying (loc will not be fully [charged)
+        charge_time += (((self.vehicle_cap - (self.vehicle_curr_battery - (travel_distance.unsqueeze(-1) * self.vehicle_consump_rate))) / ((self.depot_discharge_rate * curr_depot_mask).sum(-1, keepdim=True) + SMALL_VALUE)) * curr_vehicle_at_depot).sum(-1) # charge time for split supplying (loc will not be fully [charged)
         #--------------------------------------------------------
         # update unavail_time (charge_time) of selected vehicles
         #--------------------------------------------------------

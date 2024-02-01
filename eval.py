@@ -30,8 +30,7 @@ def eval(dataset_path: str,
          gpu: int = -1,
          num_workers: int = 4,
          visualize_routes: bool = False,
-         output_dir: str = None,
-         log_fname: str = None) -> Dict[str, Any]:
+         output_dir: str = None) -> Dict[str, Any]:
     #-----------------
     # set random seed
     #-----------------
@@ -175,35 +174,12 @@ def eval(dataset_path: str,
         "std_num_down": std_num_down
     }
 
-    if log_fname is not None:
-        with open(log_fname, "w") as f:
-            json.dump(summary, f)
+    # save log
+    log_fname = f"{output_dir}/summary.json"
+    with open(log_fname, "w") as f:
+        json.dump(summary, f)
 
     return summary
-
-    # vehicle_id = vehicle_ids[0]
-    # node_id = node_ids[0]
-    # mask = mask[0]
-    # route_info = [ [i] for i in range(torch.max(vehicle_id)+1)]
-    # assert len(vehicle_id) == len(node_id) and len(node_id) == len(mask)
-    # for step, skip in enumerate(mask):
-    #     if skip:
-    #         break
-    #     else:
-    #         route_info[vehicle_id[step]].append(node_id[step].item())
-    # print(route_info)
-    # f = open(f"{os.path.dirname(args.dataset_path)}/marl_route_{args.time_horizon}.pkl", "wb")
-    # pickle.dump(route_info, f)
-    
-    #     tour_list.append(tours)
-    #     tour_length = reward_dict["tour_length"]
-    #     penalty = reward_dict["penalty"]
-    #     print(f"tour_length={tour_length.item()}, penalty={penalty.item()}")
-    #     if args.output_tours:
-    #         output_tour_to_csv(batch, tours, args.output_dir)
-    # # save tour list
-    # tour_list = [instance for batch in tour_list for instance in batch]
-    # save_dataset(tour_list, f"{args.output_dir}/tour.pkl")
 
 if __name__ == "__main__":
     import datetime
@@ -216,7 +192,6 @@ if __name__ == "__main__":
     parser.add_argument("--num_workers",      type=int, default=4)
     parser.add_argument("--visualize_routes", action="store_true")
     parser.add_argument("--output_dir",       type=str, default=f"results/results_{now}")
-    parser.add_argument("--log_fname",        type=str, default=None)
     # dataset settings
     parser.add_argument("--dataset_path",    type=str, required=True)
     parser.add_argument("--eval_batch_size", type=int, default=1)
@@ -238,8 +213,6 @@ if __name__ == "__main__":
     # prepare a directory
     if args.visualize_routes:
         os.makedirs(args.output_dir, exist_ok=True)
-        if args.log_fname is not None:
-            os.makedirs(os.path.dirname(args.log_fname), exist_ok=True)
 
     eval(dataset_path=args.dataset_path,
          eval_batch_size=args.eval_batch_size,
@@ -258,5 +231,4 @@ if __name__ == "__main__":
          gpu=args.gpu,
          num_workers=args.num_workers,
          visualize_routes=args.visualize_routes,
-         output_dir=args.output_dir,
-         log_fname=args.log_fname)
+         output_dir=args.output_dir)
