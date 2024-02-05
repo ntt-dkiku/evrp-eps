@@ -551,7 +551,7 @@ class CIRPState(object):
         self.end = self.current_time >= self.time_horizon # [batch_size]
         # skip
         self.skip = self.end # [batch_size]
-        
+
     #---------
     # masking
     #---------
@@ -560,6 +560,8 @@ class CIRPState(object):
         # mask: 0 -> infeasible, 1 -> feasible [batch_size x num_nodes]
         #---------------------------------------------------------------
         mask = torch.ones(self.batch_size, self.num_nodes, dtype=torch.int32, device=self.device) # [batch_size x num_nodes]
+        # EV cannot discharge power when its battery rearches the limit, so EV should return to a depot at that time.
+        self.return_to_depot_when_discharge_limit_rearched(mask, next_vehicle_mask)
         # mask 0: if a selected vehicle is out of battery, we make it return to a depot
         self.mask_unreturnable_nodes(mask, next_node_id, next_vehicle_mask)
         # mask 2: forbits vehicles to move between two different depots
@@ -572,6 +574,10 @@ class CIRPState(object):
         # mask 5: in skipped episodes(instances), the selcted vehicles always stay in the same place
         self.mask_skipped_episodes(mask, next_node_id)
         return mask
+
+    def return_to_depot_when_discharge_limit_rearched(self, mask, next_vehicle_mask):
+        rearch_discharge_lim = (self.vehicle_curr_battery <= self.vehicle_discharge_lim + SMALL_VALUE)[next_vehicle_mask] # [batch_size]
+        mask[:, :self.num_locs] *= ~rearch_discharge_lim.unsqueeze(-1) # zero out all nodes in the sample where the selected EV rearches the discharge limit
 
     def mask_unreturnable_nodes(self, mask, next_node_id, next_vehicle_mask):
         """
