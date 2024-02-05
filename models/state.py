@@ -323,8 +323,8 @@ class CIRPState(object):
         loc2depot_min = torch.linalg.norm(self.get_coordinates(next_node_id).unsqueeze(1) - depot_coords, dim=-1).min(-1)[0] # [batch_size] 
         discharge_lim = torch.maximum(loc2depot_min.unsqueeze(-1) * self.vehicle_consump_rate, self.vehicle_discharge_lim) # [batch_size x num_vehicles]
         veh_discharge_lim = (self.vehicle_curr_battery - (travel_distance.unsqueeze(-1) * self.vehicle_consump_rate) - discharge_lim).clamp(0.0)
-        demand_on_arrival = torch.minimum(((self.loc_cap - (self.loc_curr_battery - self.loc_consump_rate * (travel_time.unsqueeze(-1) + self.pre_time_loc))) * destination_loc_mask).sum(-1, keepdim=True), 
-                                          veh_discharge_lim) # [batch_size x num_vehicles]
+        demand_on_arrival = torch.minimum(((self.loc_cap - (self.loc_curr_battery - self.loc_consump_rate * (travel_time.unsqueeze(-1) + self.pre_time_loc)).clamp(0.0)) * destination_loc_mask).sum(-1, keepdim=True), 
+                                            veh_discharge_lim) # [batch_size x num_vehicles]
         # split supplying TODO: need clippling ?
         charge_time_tmp = demand_on_arrival / (self.vehicle_discharge_rate - (self.loc_consump_rate * destination_loc_mask).sum(-1, keepdim=True)) # [batch_sizee x num_vehicles]
         cannot_supplly_full = ((veh_discharge_lim - charge_time_tmp * self.vehicle_discharge_rate) < 0.0) # [batch_size x num_vehicles]
@@ -336,7 +336,7 @@ class CIRPState(object):
         # charging time (visiting depots)
         #---------------------------------
         curr_depot_mask = self.get_depot_mask(next_node_id) # [batch_size x num_depots]
-        charge_time += (((self.vehicle_cap - (self.vehicle_curr_battery - (travel_distance.unsqueeze(-1) * self.vehicle_consump_rate))) / ((self.depot_discharge_rate * curr_depot_mask).sum(-1, keepdim=True) + SMALL_VALUE)) * curr_vehicle_at_depot).sum(-1) # charge time for split supplying (loc will not be fully [charged)
+        charge_time += (((self.vehicle_cap - (self.vehicle_curr_battery - (travel_distance.unsqueeze(-1) * self.vehicle_consump_rate)).clamp(0.0)) / ((self.depot_discharge_rate * curr_depot_mask).sum(-1, keepdim=True) + SMALL_VALUE)) * curr_vehicle_at_depot).sum(-1) # charge time for split supplying (loc will not be fully [charged)
         #--------------------------------------------------------
         # update unavail_time (charge_time) of selected vehicles
         #--------------------------------------------------------
