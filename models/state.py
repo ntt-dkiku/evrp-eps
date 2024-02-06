@@ -648,7 +648,7 @@ class CIRPState(object):
                 close_to_runout_battery |= close_to_timehorizon
             unreturnable_depot[all_zero & close_to_runout_battery] = False
             i += 1
-            if i > len(atol_list):
+            if i >= len(atol_list):
                 print(self.depot_discharge_rate[all_zero.squeeze(-1)])
                 print(f"battery consumption b/w loc2depot: {(current_to_depot * self.vehicle_consump_rate[next_vehicle_mask].unsqueeze(-1))[all_zero.squeeze(-1)].tolist()}")
                 print(f"selected vehicle's battery: {self.vehicle_curr_battery[next_vehicle_mask].unsqueeze(-1)[all_zero].tolist()}")
