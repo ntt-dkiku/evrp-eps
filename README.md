@@ -41,7 +41,7 @@ Regarding the synthetic datasets, you can reproduce our experimental results in 
 Please take a glance at the content via nbviwer: [nbviwer-evrp-eps](https://nbviewer.org/github/ntt-dkiku/evrp-eps/blob/main/reproduce_results.ipynb).
 
 ## Licence
-Our code is licenced by NTT. Basically, the use of our code is limitted to research purposes. See [LICENSE](./LICENSE.pdf) for more details.
+Our code is licenced by NTT. Basically, the use of our code is limitted to research purposes. See [LICENSE](./LICENSE) for more details.
 
 ## Citation
 Preparing...
