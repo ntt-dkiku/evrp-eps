@@ -1,6 +1,10 @@
 # Electric Vehicle Routing for Emergency Power Supply: Towards Telecom Base Station Relief
-This repo is the official implementation of Electric Vehicle Routing for Emergency Power Supply with Deep Reinforcement Learning (AAMAS 2024, extended abstract).
-Please check also [the project page](https://ntt-dkiku.github.io/rl-evrpeps/).
+
+<a href="https://ntt-dkiku.github.io/rl-evrpeps/"><img src="https://img.shields.io/badge/Project-page-blue"></a>
+<a href="https://ntt-dkiku.github.io/rl-evrpeps/"><img src="https://img.shields.io/badge/Paper-abs-red"></a>
+<a href="https://www.aamas2024-conference.auckland.ac.nz/"><img src="https://img.shields.io/badge/AAMAS-2024-green"></a>
+
+This repo is the official implementation of Electric Vehicle Routing for Emergency Power Supply with Deep Reinforcement Learning (AAMAS 2024, extended abstract) and Electric Vehicle Routing for Emergency Power Supply: Towards Telecom Base Station Relief (arXiv preprint).
 
 <div><video autoplay loop controls src="https://github.com/ntt-dkiku/evrp-eps/assets/154794155/818b81f7-8e19-40ac-9934-70bc30f13e53"></video></div>
 
