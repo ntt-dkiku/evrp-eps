@@ -129,6 +129,7 @@ def eval(dataset_path: str,
         # visualization
         #---------------
         if visualize_routes:
+            os.makedirs(output_dir, exist_ok=True)
             vis_routes(vehicle_ids, node_ids, batch, f"{output_dir}/batch{batch_id}", device)
             save_route_info(batch, vehicle_ids, node_ids, mask, f"{output_dir}/batch{batch_id}")
 
@@ -175,9 +176,11 @@ def eval(dataset_path: str,
     }
 
     # save log
-    log_fname = f"{output_dir}/summary.json"
-    with open(log_fname, "w") as f:
-        json.dump(summary, f)
+    if output_dir is not None:
+        os.makedirs(output_dir, exist_ok=True)
+        log_fname = f"{output_dir}/summary.json"
+        with open(log_fname, "w") as f:
+            json.dump(summary, f)
 
     return summary
 

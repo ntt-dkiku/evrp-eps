@@ -9,6 +9,7 @@ def main(args):
     if args.clustering:
         cp4tsn = CP4ClusteredTSN(num_clusters=args.num_clusters,
                                  cluster_type=args.cluster_type,
+                                 merge_duplicated_depots=args.merge_duplicated_depots,
                                  parallel=args.parallel,
                                  num_cpus=args.num_cpus,
                                  time_horizon=args.time_horizon,
@@ -84,6 +85,7 @@ if __name__ == "__main__":
     # model settings
     parser.add_argument("--clustering", action="store_true")
     parser.add_argument("--cluster_type", type=str, default="kmeans")
+    parser.add_argument("--merge_duplicated_depots", action="store_true")
     parser.add_argument("--num_clusters", type=int, default=None)
     parser.add_argument("--parallel", action="store_true")
     parser.add_argument("--num_cpus", type=int, default=4)

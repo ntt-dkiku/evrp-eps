@@ -19,6 +19,8 @@ SAVE_HISTORY = True
 OUTPUT_INTERVAL = 0.01
 FPS = 60
 UNEQUAL_INTERVAL = False
+COEF = 1.0
+V_COEF = 1.0
 
 #--------------------------
 # when input is route_list
@@ -170,7 +172,7 @@ class CIRPState(object):
         self.num_nodes    = self.num_locs + self.num_depots
         self.wait_time    = torch.FloatTensor([input["wait_time"]]).to(device)
         self.time_horizon = torch.FloatTensor([input["time_horizon"]]).to(device)
-        self.speed        = (torch.FloatTensor([input["vehicle_speed"]]).to(device) / input["grid_scale"]).squeeze(-1) # [batch_size x 1] -> [batch_size]
+        self.speed        = V_COEF * (torch.FloatTensor([input["vehicle_speed"]]).to(device) / input["grid_scale"]).squeeze(-1) # [batch_size x 1] -> [batch_size]
         self.max_cap      = torch.max(torch.tensor([torch.max(self.loc_cap).item(), torch.max(self.vehicle_cap).item()])).to(device) 
         self.device       = device
         self.loc_min_battery = 0.0 # TODO
@@ -286,7 +288,7 @@ class CIRPState(object):
         curr_node_id = self.vehicle_position_id.gather(-1, curr_vehicle_id.unsqueeze(-1)).squeeze(-1) # [batch_size]
         curr_coords = self.get_coordinates(curr_node_id) # [batch_size x coord_dim]
         next_coords = self.get_coordinates(next_node_id) # [batch_size x coord_dim]
-        travel_distance = torch.linalg.norm(curr_coords - next_coords, dim=-1) # [batch_size]
+        travel_distance = COEF * torch.linalg.norm(curr_coords - next_coords, dim=-1) # [batch_size]
         travel_time = travel_distance / self.speed # [batch_size]
 
         # check waiting vehicles
@@ -320,7 +322,7 @@ class CIRPState(object):
         #-------------------------------------
         unavail_depots = self.get_unavail_depots2(next_node_id).unsqueeze(-1).expand_as(self.depot_coords)
         depot_coords = self.depot_coords + 1e+6 * unavail_depots
-        loc2depot_min = torch.linalg.norm(self.get_coordinates(next_node_id).unsqueeze(1) - depot_coords, dim=-1).min(-1)[0] # [batch_size] 
+        loc2depot_min = COEF * torch.linalg.norm(self.get_coordinates(next_node_id).unsqueeze(1) - depot_coords, dim=-1).min(-1)[0] # [batch_size] 
         discharge_lim = torch.maximum(loc2depot_min.unsqueeze(-1) * self.vehicle_consump_rate, self.vehicle_discharge_lim) # [batch_size x num_vehicles]
         veh_discharge_lim = (self.vehicle_curr_battery - (travel_distance.unsqueeze(-1) * self.vehicle_consump_rate) - discharge_lim).clamp(0.0)
         demand_on_arrival = torch.minimum(((self.loc_cap - (self.loc_curr_battery - self.loc_consump_rate * (travel_time.unsqueeze(-1) + self.pre_time_loc)).clamp(0.0)) * destination_loc_mask).sum(-1, keepdim=True), 
@@ -590,8 +592,8 @@ class CIRPState(object):
         current_coord = torch.gather(self.coords, 1, next_node_id.view(-1, 1, 1).expand(-1, 1, self.coord_dim)) # [batch_size, 1, coord_dim]
         unavail_depots = self.small_depots.unsqueeze(-1).expand_as(self.depot_coords) # [batch_size x num_depots x coord_dim]
         depot_coords = self.depot_coords + 1e+6 * unavail_depots # set large value for removing small depots [batch_size x num_depots x coord_dim]
-        current_to_loc = torch.linalg.norm(self.loc_coords - current_coord, dim=-1) # [batch_size x num_locs]
-        loc_to_depot = torch.min(torch.cdist(self.loc_coords, depot_coords), -1)[0] # travel time b/w locs and the nearest depot [batch_size x num_locs]
+        current_to_loc = COEF * torch.linalg.norm(self.loc_coords - current_coord, dim=-1) # [batch_size x num_locs]
+        loc_to_depot = COEF * torch.min(torch.cdist(self.loc_coords, depot_coords), -1)[0] # travel time b/w locs and the nearest depot [batch_size x num_locs]
         current_to_loc_time = current_to_loc / self.speed.unsqueeze(-1)
         loc_to_depot_time = loc_to_depot / self.speed.unsqueeze(-1)
         wait_time = self.wait_time * (torch.abs(current_to_loc) < SMALL_VALUE) # [batch_size x num_locs]
@@ -626,7 +628,7 @@ class CIRPState(object):
         #---------------------------------------------------------------------------------------
         unavail_depots2 = self.get_unavail_depots(next_node_id).unsqueeze(-1).expand_as(self.depot_coords) # [batch_size x num_depots x coord_dim]
         depot_coords2 = self.depot_coords + 1e+6 * unavail_depots2
-        current_to_depot = torch.linalg.norm(depot_coords2 - current_coord, dim=-1) # [batch_size x num_depots]
+        current_to_depot = COEF * torch.linalg.norm(depot_coords2 - current_coord, dim=-1) # [batch_size x num_depots]
         current_to_depot_time = current_to_depot / self.speed.unsqueeze(-1) # [batch_size x n_depots]
         # battery
         curr2depot_batt = current_to_depot * self.vehicle_consump_rate[next_vehicle_mask].unsqueeze(-1) # [batch_size x num_depots]
@@ -971,6 +973,7 @@ class CIRPState(object):
         ax3.set_xlabel("Time (h)")
         ax3.set_ylabel("Number of downed base stations")
         plt.savefig(f"{self.fname}-sample{batch}/batt_history.png", dpi=DPI)
+        plt.close()
         
         # save raw data
         hisotry_data = {
