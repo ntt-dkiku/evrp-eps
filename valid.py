@@ -8,7 +8,7 @@ def valid(args: argparse.Namespace) -> None:
     # compare each epoch on validation datasets
     best_epoch = 0
     min_cost   = 1e+9 # a large value
-    for epoch in range(args.max_epoch):
+    for epoch in range(args.max_epoch+1):
         print(f"Evaluating the model at epoch{epoch} (currently best epoch is {best_epoch}: cost={min_cost})", flush=True)
         # load a trained model
         model_path = f"{args.model_dir}/model_epoch{epoch}.pth"
@@ -26,6 +26,7 @@ def valid(args: argparse.Namespace) -> None:
                    num_workers=args.num_workers)
         cost = res["avg_obj"]
 
+        # if the current epoch is better than previous epochs
         if min_cost > cost:
             best_epoch = epoch
             min_cost   = cost
@@ -33,7 +34,7 @@ def valid(args: argparse.Namespace) -> None:
     # save the best epoch
     model_path = f"{args.model_dir}/model_epoch{best_epoch}.pth"
     save_path  = f"{args.model_dir}/model_bestepoch.pth"
-    subprocess.run(f"cp {model_path} {save_path}")
+    subprocess.run(f"cp {model_path} {save_path}", shell=True)
 
 
 if __name__ == "__main__":
