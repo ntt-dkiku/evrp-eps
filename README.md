@@ -1,4 +1,4 @@
-# Electric Vehicle Routing for Emergency Power Supply: Toward Telecom Base Station Relief
+# Electric Vehicle Routing for Emergency Power Supply: Towards Telecom Base Station Relief
 This repo is the official implementation of Electric Vehicle Routing for Emergency Power Supply with Deep Reinforcement Learning (AAMAS 2024, extended abstract).
 Please check also [the project page](https://ntt-dkiku.github.io/rl-evrpeps/).
 
@@ -37,10 +37,11 @@ python eval.py --model_dir checkpoints/demo_model --dataset_path data/synthetic_
 ```
 
 ## Reproducibility
-Regarding the synthetic datasets, you can reproduce our experimental results in [reproduce_results.ipynb](./reproduce_results.ipynb).
+Regarding the synthetic datasets, you can reproduce our experimental results in [reproduce_results.ipynb](./reproduce_results.ipynb).  
+Please take a glance at the content via nbviwer: [nbviwer-evrp-eps](https://nbviewer.org/github/ntt-dkiku/evrp-eps/blob/main/reproduce_results.ipynb).
 
 ## Licence
-Our code is licenced by NTT licence. Basically, the use of our code is limitted to research purposes. Refer to [LICENSE](./LICENSE.pdf) for more details.
+Our code is licenced by NTT. Basically, the use of our code is limitted to research purposes. See [LICENSE](./LICENSE.pdf) for more details.
 
 ## Citation
 Preparing...
