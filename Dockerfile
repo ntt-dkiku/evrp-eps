@@ -11,11 +11,11 @@ RUN apt-get -y update && \
     tmux 
 
 # jupyter-notebook & lab
-RUN python3 -m pip install jupyter
-RUN python3 -m pip install jupyterlab
+RUN python3 -m pip install jupyter==1.0.0
+RUN python3 -m pip install jupyterlab==4.0.2
 
 # OR-tools 
-RUN python3 -m pip install ortools
+RUN python3 -m pip install ortools==9.6.2534
 
 # other convenient packages
 RUN python3 -m pip install numpy
