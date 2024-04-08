@@ -65,7 +65,7 @@ If you find this work useful, please cite our paper as follows:
 ```
 @misc{kikuta2024electric,
       title={Electric Vehicle Routing Problem for Emergency Power Supply: Towards Telecom Base Station Relief}, 
-      author={Daisuke Kikuta and Hiroki Ikeuchi and Kengo Tajiri and Yuta Toyama and Yuusuke Nakano},
+      author={Daisuke Kikuta and Hiroki Ikeuchi and Kengo Tajiri and Yuta Toyama and Masaki Nakamura and Yuusuke Nakano},
       year={2024},
       eprint={2404.02448},
       archivePrefix={arXiv},
